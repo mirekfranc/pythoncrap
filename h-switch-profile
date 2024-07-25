@@ -1,0 +1,68 @@
+#!/usr/bin/python3
+
+import re, sys, os
+
+MY_CONFIG = '/home/mfranc/.config/hypr/hyprland.conf'
+SECTION_REGEX = re.compile(r'^# begin (\S+)\n')
+
+sections = []
+lines = []
+selection = 0
+
+with open(MY_CONFIG, 'r') as hconf:
+    checkp = 0
+    for l in hconf:
+        lines.append(l)
+        m = SECTION_REGEX.match(l)
+        if checkp and not l.startswith('# '):
+            selection = checkp
+        checkp = 0
+        if m:
+            sections.append(m.group(1))
+            checkp = len(sections)
+
+if len(sys.argv) < 2:
+    for n, s in enumerate(sections, 1):
+        print("{:>2}:{}{}".format(n, '*' if selection == n else ' ', s))
+    sys.exit(0)
+
+what = 0
+try:
+    what = int(sys.argv[1])
+    if what < 1 or what > len(sections):
+        raise None
+except:
+    print('"{}" is not a number between 1 and {}'.format(sys.argv[1], len(sections)), file=sys.stderr)
+    sys.exit(1)
+
+if what == selection:
+    print('"{}" is already selected'.format(sys.argv[1]), file=sys.stderr)
+    sys.exit(1)
+
+what -= 1
+uncomment = '# begin {}\n'.format(sections[what])
+comment = ['# begin {}\n'.format(l) for l in sections if l != sections[what]]
+
+with open(MY_CONFIG + '.new', 'w') as hconf:
+    commentp = False
+    uncommentp = False
+    for l in lines:
+        if l.startswith('# end'):
+            commentp = False
+            uncommentp = False
+
+        if commentp and not l.startswith('# '):
+            print('# ' + l, file=hconf, end='')
+        elif uncommentp and l.startswith('# '):
+            print(l.removeprefix('# '), file=hconf, end='')
+            print(l, end='')
+        else:
+            print(l, file=hconf, end='')
+
+        if l == uncomment:
+            uncommentp = True
+        elif l in comment:
+            commentp = True
+
+os.rename(MY_CONFIG, MY_CONFIG + '.bak')
+os.rename(MY_CONFIG + '.new', MY_CONFIG)
